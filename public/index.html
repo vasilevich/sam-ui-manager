@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>SAM UI Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1>SAM UI Manager</h1>
+        <div class="subtitle">Tiny localhost control panel for SAM apps behind PM2.</div>
+      </div>
+      <button id="refreshBtn">Refresh</button>
+    </div>
+
+    <div id="banner" class="banner"></div>
+    <div id="stats" class="stats"></div>
+
+    <div class="layout">
+      <div class="panel">
+        <div class="section-title" id="formTitle">Add project</div>
+        <form id="projectForm">
+          <div class="group">
+            <label for="name">Project Name</label>
+            <input id="name" name="name" placeholder="Orders API" required />
+            <div class="helper">Shown on the dashboard and used for the local repo folder.</div>
+          </div>
+
+          <div class="group">
+            <label for="repoUrl">Repository URL</label>
+            <input id="repoUrl" name="repoUrl" placeholder="https://github.com/org/repo.git or git@github.com:org/repo.git" required />
+            <div class="helper" id="repoUrlHelper"></div>
+          </div>
+
+          <div class="row">
+            <div class="group">
+              <label for="branch">Branch</label>
+              <input id="branch" name="branch" value="main" />
+            </div>
+            <div class="group">
+              <label for="subdir">Subdirectory</label>
+              <input id="subdir" name="subdir" value="." />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="group">
+              <label for="port">Port</label>
+              <input id="port" name="port" />
+              <div class="helper">Blank = auto-pick a free port in 58000-58999.</div>
+            </div>
+            <div class="group">
+              <label>&nbsp;</label>
+              <button type="button" id="suggestPortBtn">Pick Free Port</button>
+            </div>
+          </div>
+
+          <div class="subpanel">
+            <div class="section-title">Repository authentication</div>
+            <div class="group">
+              <label for="authMethod">Authentication Method</label>
+              <select id="authMethod" name="authMethod">
+                <option value="public">Public repo</option>
+                <option value="https_credentials">HTTPS with username + password/token</option>
+                <option value="https_token">HTTPS with token</option>
+                <option value="ssh">SSH using system SSH keys</option>
+              </select>
+              <div class="helper" id="authHelper"></div>
+            </div>
+            <div class="group" id="authUsernameWrap">
+              <label for="authUsername">Username</label>
+              <input id="authUsername" name="authUsername" />
+            </div>
+            <div class="group" id="secretWrap">
+              <label for="secret">Password / Token</label>
+              <input id="secret" name="secret" type="password" />
+              <div class="helper" id="secretState"></div>
+            </div>
+            <div id="sshWrap">
+              <div class="helper">Uses the machine's existing SSH keys or ssh-agent.</div>
+              <div class="row ssh-key-actions">
+                <button type="button" id="checkSshKeysBtn">Show Available Public Keys</button>
+                <button type="button" class="primary" id="generateSshKeyBtn">Generate SSH Key If Missing</button>
+              </div>
+              <div class="row ssh-key-actions">
+                <button type="button" id="copyFirstSshKeyBtn">Copy First Public Key</button>
+              </div>
+              <div class="helper">Your public key appears in the box below. Copy it and add it to GitHub/GitLab/Bitbucket SSH keys.</div>
+              <pre id="sshKeysOutput" class="ssh-keys-output"></pre>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" type="submit" id="saveBtn">Add Project</button>
+            <button type="button" id="cancelEditBtn">Cancel Edit</button>
+          </div>
+        </form>
+      </div>
+
+      <div>
+        <div class="projects-header">
+          <div>
+            <div class="section-title">Projects</div>
+            <div class="muted">Deploy = git update + sam build + PM2 restart.</div>
+          </div>
+        </div>
+        <div id="projects" class="projects"></div>
+      </div>
+    </div>
+
+    <div id="logPanel" class="log-panel">
+      <div class="projects-header">
+        <div>
+          <div class="section-title" id="logTitle">Logs</div>
+          <div class="muted">Recent deploy output, PM2 stdout, PM2 stderr, and last stored error.</div>
+        </div>
+        <button id="closeLogsBtn">Close</button>
+      </div>
+      <div class="log-grid">
+        <div><div class="section-title">Deploy output</div><pre id="deployLog"></pre></div>
+        <div><div class="section-title">PM2 stdout</div><pre id="pm2OutLog"></pre></div>
+        <div><div class="section-title">PM2 stderr</div><pre id="pm2ErrLog"></pre></div>
+        <div><div class="section-title">Last error</div><pre id="lastErrorLog"></pre></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
