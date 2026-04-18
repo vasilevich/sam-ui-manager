@@ -7,7 +7,7 @@
 > - **Use at your own risk.**
 > - Treat it as a practical internal tool, not a production platform.
 
-`SAM UI Manager` is a local web dashboard for running multiple AWS SAM apps behind PM2.
+`SAM UI Manager` is a local web dashboard for running multiple [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) apps behind [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/).
 
 It gives you one place to:
 
@@ -25,22 +25,22 @@ Current running dashboard example:
 
 ## What You Get
 
-- Multi-project SAM management from one UI
+- Multi-project [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) management from one UI
 - Git auth modes: `public`, `https_credentials`, `https_token`, `ssh`
 - SSH helper UX: view public keys and generate one if missing
 - Auto host-trust-on-first-connect for SSH remotes (`data/ssh-known-hosts`)
 - Built-in remote URL attachments (`bindHost:bindPort -> local SAM port`)
-- PM2 status + deploy logs + stderr/stdout in the same dashboard
+- [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) status + deploy logs + stderr/stdout in the same dashboard
 
 ## Requirements
 
 Primary target: **Ubuntu 24.04** (works on other systems if tools are available).
 
-- Node.js 20+
+- [Node.js](https://nodejs.org/en/docs) 20+
 - npm
-- Git
-- Docker (running)
-- AWS SAM CLI
+- [Git](https://git-scm.com/doc)
+- [Docker](https://docs.docker.com/)
+- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
 
 ## Install
 
@@ -84,7 +84,7 @@ Deploy flow is:
 1. validate branch/repo
 2. clone/fetch repo into `repos/<app-id>`
 3. run `sam build`
-4. restart `sam local start-api` under PM2
+4. restart `sam local start-api` under [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/)
 
 ### 3) Call your endpoint
 
@@ -96,7 +96,7 @@ Example:
 curl -X POST http://127.0.0.1:58001/echo
 ```
 
-If you call a path that is not defined, SAM may return `Missing Authentication Token`.
+If you call a path that is not defined, [SAM local API emulation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/using-sam-cli-local-start-api.html) may return `Missing Authentication Token`.
 
 ### 4) Attach remote URLs (built-in proxy)
 
@@ -119,7 +119,7 @@ Accepted SSH remote examples:
 - `git@github.com:org/repo.git`
 - `ssh://git@github.com/org/repo.git`
 
-No root is required for Git auth. The app runs Git as the same OS user running `sam-ui-manager`.
+No root is required for Git auth. The app runs [Git](https://git-scm.com/doc) as the same OS user running `sam-ui-manager`.
 
 ## API Quick Reference
 
@@ -143,7 +143,7 @@ No root is required for Git auth. The app runs Git as the same OS user running `
 
 - DB: `data/apps.json`
 - deploy logs: `data/logs/<app-id>.deploy.log`
-- PM2 logs: `data/logs/<app-id>.pm2.out.log`, `data/logs/<app-id>.pm2.err.log`
+- [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) logs: `data/logs/<app-id>.pm2.out.log`, `data/logs/<app-id>.pm2.err.log`
 - encrypted secrets key: `data/.secret.key`
 - SSH known hosts cache: `data/ssh-known-hosts`
 - cloned repos: `repos/<app-id>/`
@@ -167,6 +167,7 @@ npm start
 
 - `sam --version` should work in same shell
 - `docker info` should succeed
+- If needed, see [SAM CLI troubleshooting](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-troubleshooting.html)
 
 ### Deploy works but endpoint fails
 
