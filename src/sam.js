@@ -15,7 +15,12 @@ const hasMakefileBuildMethod = (templateFile) => /(^|\n)\s*BuildMethod\s*:\s*mak
 const detectEnvVarsFile = (cwd) => ['env.json', 'env.local.json', 'env.example.json'].find((name) => existsSync(join(cwd, name))) || null;
 const hasGoModule = (cwd) => existsSync(join(cwd, 'go.mod'));
 const isMissingGoSumError = (text = '') => /missing go\.sum entry/i.test(String(text || ''));
-const envFilePath = (cwd) => join(cwd, '.env');
+const envFileName = (app = {}) => {
+  const name = String(app.runtimeEnvFileName || '.env').trim() || '.env';
+  if (name.includes('/') || name.includes('\\') || name.includes('..')) throw new Error('invalid env filename');
+  return name;
+};
+const envFilePath = (cwd, app) => join(cwd, envFileName(app));
 
 const runVersionCheck = async (cmd, args = ['--version'], runner = execa) => {
   try {
@@ -52,15 +57,16 @@ export async function validateSamApp(app) {
 
 export async function syncRuntimeEnvFile(app, logFile = null) {
   const cwd = await validateSamApp(app);
-  const envPath = envFilePath(cwd);
+  const targetName = envFileName(app);
+  const envPath = envFilePath(cwd, app);
   const text = app.envEnc ? decrypt(app.envEnc) : '';
   if (!text.trim()) {
     await rm(envPath, { force: true });
-    if (logFile) await appendLogSafe(logFile, '$ synced runtime .env: removed (no stored content)\n');
+    if (logFile) await appendLogSafe(logFile, `$ synced runtime ${targetName}: removed (no stored content)\n`);
     return;
   }
   await writeFile(envPath, text.endsWith('\n') ? text : `${text}\n`);
-  if (logFile) await appendLogSafe(logFile, '$ synced runtime .env: wrote repo-root .env from stored project settings\n');
+  if (logFile) await appendLogSafe(logFile, `$ synced runtime ${targetName}: wrote repo-root ${targetName} from stored project settings\n`);
 }
 
 export async function checkPrereqs({ needsMakefileBuilder = false, runner = execa } = {}) {

@@ -52,7 +52,7 @@ router.get('/apps/:id/logs', wrap(async (req, res) => {
 router.get('/apps/:id/env', wrap(async (req, res) => {
   const app = findApp(req.params.id);
   if (!app) throw new Error('not found');
-  res.json({ hasEnvFile: Boolean(app.envEnc), envText: app.envEnc ? decrypt(app.envEnc) : '' });
+  res.json({ hasEnvFile: Boolean(app.envEnc), envText: app.envEnc ? decrypt(app.envEnc) : '', envFileName: app.runtimeEnvFileName || '.env' });
 }));
 
 // CRUD + lifecycle endpoints used by the dashboard actions.

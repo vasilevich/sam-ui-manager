@@ -60,8 +60,14 @@
 
           <div class="group">
             <label for="envText">Project .env (optional)</label>
+            <div class="row">
+              <div>
+                <label for="envFileName">Runtime env filename</label>
+                <input id="envFileName" name="envFileName" value=".env" placeholder=".env" />
+              </div>
+            </div>
             <textarea id="envText" name="envText" rows="8" placeholder="KEY=value\nANOTHER_KEY=value"></textarea>
-            <div class="helper">Stored in manager DB and written to repo root as <code>.env</code> on deploy/start. Leave empty to remove.</div>
+            <div class="helper">Stored in manager DB and written to repo root using the filename above (default <code>.env</code>) on deploy/start. Leave text empty to remove the file.</div>
           </div>
 
           <div class="subpanel">

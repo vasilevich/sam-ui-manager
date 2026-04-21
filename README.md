@@ -32,7 +32,7 @@ Current running dashboard example:
 - Built-in remote URL attachments (`bindHost:bindPort -> local SAM port`)
 - [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) status + deploy logs + stderr/stdout in the same dashboard
 - Robust support for SAM `BuildMethod: makefile` projects with explicit preflight checks for `make` and language toolchain binaries
-- Optional per-project stored `.env` content (encrypted at rest) that is written to repo root on deploy/start
+- Optional per-project stored env content (encrypted at rest) written to repo root on deploy/start with configurable filename (default `.env`)
 
 ## Requirements
 

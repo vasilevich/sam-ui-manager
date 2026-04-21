@@ -14,6 +14,12 @@ export const workDir = (app) => join(repoDir(app), cleanSubdir(app.subdir));
 // Support both ssh:// URLs and scp-style Git remotes like user@host:org/repo.git.
 const isSshRepoUrl = (url = '') => /^ssh:\/\//i.test(url) || /^[^@\s]+@[^:\s]+:.+/.test(url);
 const cleanHost = (value = '') => String(value || '').trim().toLowerCase();
+const cleanEnvFileName = (value = '.env') => {
+  const name = String(value || '.env').trim() || '.env';
+  if (name.includes('/') || name.includes('\\') || name.includes('..')) throw new Error('invalid env filename');
+  if (!/^[A-Za-z0-9._-]+$/.test(name)) throw new Error('invalid env filename');
+  return name;
+};
 
 export function normalizeAttachment(item = {}, index = 0) {
   return {
@@ -52,6 +58,7 @@ export function normalizeApp(app = {}) {
     sshKeyName: String(app.sshKeyName || '').trim(),
     secretEnc: String(app.secretEnc || ''),
     envEnc: String(app.envEnc || ''),
+    runtimeEnvFileName: cleanEnvFileName(app.runtimeEnvFileName || '.env'),
     remoteAttachments: Array.isArray(app.remoteAttachments) ? app.remoteAttachments.map(normalizeAttachment).filter((item) => item.bindPort) : [],
     createdAt: app.createdAt || new Date().toISOString(),
     updatedAt: app.updatedAt || new Date().toISOString(),
@@ -67,6 +74,7 @@ export function validateInput(body, current = null) {
   const username = String((body.authUsername ?? current?.authUsername) || '').trim();
   const secretInput = String(body.secret || '').trim();
   const envTextProvided = Object.prototype.hasOwnProperty.call(body || {}, 'envText');
+  const envFileProvided = Object.prototype.hasOwnProperty.call(body || {}, 'envFileName');
   const envText = String(body.envText || '').replace(/\r\n/g, '\n');
 
   // Repository URL and auth mode must match each other to avoid silent auth confusion.
@@ -85,6 +93,7 @@ export function validateInput(body, current = null) {
   next.secretEnc = ['public', 'ssh'].includes(next.authMethod) ? '' : secretInput ? encrypt(secretInput) : (current?.secretEnc || '');
 
   // Optional per-project .env text, encrypted at rest and materialized into repo root on deploy/start.
+  next.runtimeEnvFileName = envFileProvided ? cleanEnvFileName(body.envFileName) : cleanEnvFileName(current?.runtimeEnvFileName || '.env');
   if (envTextProvided) {
     if (!envText.trim()) next.envEnc = '';
     else {
@@ -102,6 +111,7 @@ export const publicApp = (app, proc = null) => ({
   ...app,
   hasSecret: Boolean(app.secretEnc),
   hasEnvFile: Boolean(app.envEnc),
+  envFileName: app.runtimeEnvFileName || '.env',
   authLabel: authLabel(app.authMethod),
   sshKeyLabel: app.authMethod === 'ssh'
     ? (!app.sshKeyName

@@ -150,20 +150,21 @@ test('makefile build auto-runs go mod tidy and retries once on missing go.sum', 
   }
 });
 
-test('stored project env is written to repo-root .env before build', async () => {
+test('stored project env is written to configured repo-root env filename before build', async () => {
   const { app, target } = stageFixture('standard');
   const logPath = join(mkdtempSync(join(tmpdir(), 'sam-ui-manager-test-')), 'deploy.log');
 
   try {
     app.envEnc = encrypt('API_KEY=123\nMODE=dev');
+    app.runtimeEnvFileName = 'env.json';
     const runner = async (cmd, args, opts = {}) => {
       if (cmd === 'sam' && args[0] === '--version') return { stdout: 'SAM CLI, version 1.120.0' };
       if (cmd === 'docker' && args[0] === '--version') return { stdout: 'Docker version 26.0.0' };
       if (cmd === 'docker' && args[0] === 'info') return { stdout: 'ok' };
       if (cmd === 'sam' && args[0] === 'build') {
         assert.equal(opts.cwd, target);
-        const envPath = join(target, '.env');
-        assert.equal(existsSync(envPath), true, '.env should exist before build command');
+        const envPath = join(target, 'env.json');
+        assert.equal(existsSync(envPath), true, 'env.json should exist before build command');
         assert.equal(readFileSync(envPath, 'utf8'), 'API_KEY=123\nMODE=dev\n');
         return { all: 'Build Succeeded' };
       }
@@ -172,7 +173,7 @@ test('stored project env is written to repo-root .env before build', async () =>
 
     await runSamBuild(app, logPath, { runner });
     const logOutput = readFileSync(logPath, 'utf8');
-    assert.match(logOutput, /synced runtime \.env: wrote repo-root \.env/);
+    assert.match(logOutput, /synced runtime env\.json: wrote repo-root env\.json/);
   } finally {
     cleanup(target);
     cleanup(join(logPath, '..'));

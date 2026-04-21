@@ -51,6 +51,7 @@ export function resetForm() {
   hide('cancelEditBtn');
   $('secretState').textContent = '';
   $('envText').value = '';
+  $('envFileName').value = '.env';
   lastSshKeys = [];
   $('sshKeyName').innerHTML = '';
   $('sshKeyName').value = '';
@@ -67,6 +68,7 @@ export async function editProject(id) {
   ['name', 'repoUrl', 'branch', 'subdir', 'port', 'authMethod', 'authUsername', 'sshKeyName'].forEach((k) => { $(k).value = app[k] || (k === 'subdir' ? '.' : ''); });
   $('secret').value = '';
   $('envText').value = '';
+  $('envFileName').value = app.envFileName || '.env';
   $('sshKeyName').dataset.pendingValue = app.sshKeyName || '';
   $('formTitle').textContent = `Edit project: ${app.name}`;
   $('saveBtn').textContent = 'Save Changes';
@@ -75,6 +77,7 @@ export async function editProject(id) {
   try {
     const env = await api(`/api/apps/${id}/env`);
     $('envText').value = env.envText || '';
+    $('envFileName').value = env.envFileName || app.envFileName || '.env';
   } catch (error) {
     showBanner(`Could not load stored .env content: ${error.message}`, 'warn');
   }

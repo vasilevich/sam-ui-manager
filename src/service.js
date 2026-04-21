@@ -110,7 +110,7 @@ export async function updateApp(id, body) {
   await saveApps(apps);
   const live = await sanitize(app);
   // Tell UI when config drift means "restart" is required to apply changes.
-  const restartRequired = live.status === 'online' && ['repoUrl', 'branch', 'subdir', 'port', 'authMethod', 'authUsername', 'sshKeyName', 'envEnc'].some((k) => String(before[k] || '') !== String(app[k] || ''));
+  const restartRequired = live.status === 'online' && ['repoUrl', 'branch', 'subdir', 'port', 'authMethod', 'authUsername', 'sshKeyName', 'envEnc', 'runtimeEnvFileName'].some((k) => String(before[k] || '') !== String(app[k] || ''));
   return { app: live, restartRequired };
 }
 
