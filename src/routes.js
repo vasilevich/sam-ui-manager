@@ -4,6 +4,7 @@ import { HOST, PORT } from './config.js';
 import { findApp } from './db.js';
 import { addAttachment, createApp, deleteApp, deleteAttachment, deployApp, getLogs, listApps, restartApp, startApp, stopApp, suggestPort, updateApp } from './service.js';
 import { deleteFileBackedPublicKey, ensurePublicKey, generateNewPublicKey, listUsablePublicKeys } from './ssh.js';
+import { decrypt } from './secure.js';
 
 // Keep route handlers clean by centralizing async error handling.
 // Convention: explicit "not found" errors map to 404, everything else to 400.
@@ -47,6 +48,11 @@ router.get('/apps/:id/logs', wrap(async (req, res) => {
   const app = findApp(req.params.id);
   if (!app) throw new Error('not found');
   res.json(await getLogs(app));
+}));
+router.get('/apps/:id/env', wrap(async (req, res) => {
+  const app = findApp(req.params.id);
+  if (!app) throw new Error('not found');
+  res.json({ hasEnvFile: Boolean(app.envEnc), envText: app.envEnc ? decrypt(app.envEnc) : '' });
 }));
 
 // CRUD + lifecycle endpoints used by the dashboard actions.

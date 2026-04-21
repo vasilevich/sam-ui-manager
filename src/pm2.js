@@ -1,7 +1,7 @@
 import pm2 from 'pm2';
 import { pm2ErrLog, pm2OutLog, tail } from './logs.js';
 import { pm2Name, workDir } from './model.js';
-import { startArgs, validateSamApp } from './sam.js';
+import { startArgs, syncRuntimeEnvFile, validateSamApp } from './sam.js';
 
 // PM2 has callback APIs; wrap connect/list/start/delete into Promises.
 const call = (fn) => new Promise((resolve, reject) => pm2.connect((err) => err ? reject(err) : Promise.resolve(fn()).then(resolve, reject).finally(() => pm2.disconnect())));
@@ -16,6 +16,7 @@ export const stopProcess = async (app) => call(() => new Promise((resolve) => pm
 export async function startProcess(app) {
   // Validate SAM project shape before letting PM2 spawn anything.
   await validateSamApp(app);
+  await syncRuntimeEnvFile(app);
   return call(() => new Promise((resolve, reject) => pm2.start({
     name: pm2Name(app.id),
     script: 'sam',

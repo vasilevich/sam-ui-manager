@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { execa } from 'execa';
 import { workDir } from './model.js';
 import { appendLogSafe } from './logs.js';
+import { decrypt } from './secure.js';
 
 // Support both .yaml and .yml to avoid surprising template naming failures.
 export const templatePath = (app) => ['template.yaml', 'template.yml'].find((name) => existsSync(`${workDir(app)}/${name}`));
@@ -13,6 +15,7 @@ const hasMakefileBuildMethod = (templateFile) => /(^|\n)\s*BuildMethod\s*:\s*mak
 const detectEnvVarsFile = (cwd) => ['env.json', 'env.local.json', 'env.example.json'].find((name) => existsSync(join(cwd, name))) || null;
 const hasGoModule = (cwd) => existsSync(join(cwd, 'go.mod'));
 const isMissingGoSumError = (text = '') => /missing go\.sum entry/i.test(String(text || ''));
+const envFilePath = (cwd) => join(cwd, '.env');
 
 const runVersionCheck = async (cmd, args = ['--version'], runner = execa) => {
   try {
@@ -47,6 +50,19 @@ export async function validateSamApp(app) {
   return detectSamCapabilities(app).cwd;
 }
 
+export async function syncRuntimeEnvFile(app, logFile = null) {
+  const cwd = await validateSamApp(app);
+  const envPath = envFilePath(cwd);
+  const text = app.envEnc ? decrypt(app.envEnc) : '';
+  if (!text.trim()) {
+    await rm(envPath, { force: true });
+    if (logFile) await appendLogSafe(logFile, '$ synced runtime .env: removed (no stored content)\n');
+    return;
+  }
+  await writeFile(envPath, text.endsWith('\n') ? text : `${text}\n`);
+  if (logFile) await appendLogSafe(logFile, '$ synced runtime .env: wrote repo-root .env from stored project settings\n');
+}
+
 export async function checkPrereqs({ needsMakefileBuilder = false, runner = execa } = {}) {
   // Build/start require both SAM CLI and Docker runtime.
   const samCheck = await runVersionCheck('sam', ['--version'], runner);
@@ -71,6 +87,7 @@ export async function checkPrereqs({ needsMakefileBuilder = false, runner = exec
 export async function runSamBuild(app, logFile, { runner = execa } = {}) {
   const capabilities = detectSamCapabilities(app);
   const { cwd, sourceTemplateFile, usesMakefileBuilder } = capabilities;
+  await syncRuntimeEnvFile(app, logFile);
   const diagnostics = await checkPrereqs({ needsMakefileBuilder: usesMakefileBuilder, runner });
   const command = ['build', '--template-file', sourceTemplateFile];
 

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ROOT } from '../src/config.js';
 import { runSamBuild, checkPrereqs, detectSamCapabilities, startArgs } from '../src/sam.js';
+import { encrypt } from '../src/secure.js';
 
 const fixtureRoot = join(ROOT, 'tests', 'fixtures');
 const reposRoot = join(ROOT, 'repos');
@@ -143,6 +144,35 @@ test('makefile build auto-runs go mod tidy and retries once on missing go.sum', 
     const logOutput = readFileSync(logPath, 'utf8');
     assert.match(logOutput, /\$ go mod tidy/);
     assert.match(logOutput, /retry after go mod tidy/);
+  } finally {
+    cleanup(target);
+    cleanup(join(logPath, '..'));
+  }
+});
+
+test('stored project env is written to repo-root .env before build', async () => {
+  const { app, target } = stageFixture('standard');
+  const logPath = join(mkdtempSync(join(tmpdir(), 'sam-ui-manager-test-')), 'deploy.log');
+
+  try {
+    app.envEnc = encrypt('API_KEY=123\nMODE=dev');
+    const runner = async (cmd, args, opts = {}) => {
+      if (cmd === 'sam' && args[0] === '--version') return { stdout: 'SAM CLI, version 1.120.0' };
+      if (cmd === 'docker' && args[0] === '--version') return { stdout: 'Docker version 26.0.0' };
+      if (cmd === 'docker' && args[0] === 'info') return { stdout: 'ok' };
+      if (cmd === 'sam' && args[0] === 'build') {
+        assert.equal(opts.cwd, target);
+        const envPath = join(target, '.env');
+        assert.equal(existsSync(envPath), true, '.env should exist before build command');
+        assert.equal(readFileSync(envPath, 'utf8'), 'API_KEY=123\nMODE=dev\n');
+        return { all: 'Build Succeeded' };
+      }
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    };
+
+    await runSamBuild(app, logPath, { runner });
+    const logOutput = readFileSync(logPath, 'utf8');
+    assert.match(logOutput, /synced runtime \.env: wrote repo-root \.env/);
   } finally {
     cleanup(target);
     cleanup(join(logPath, '..'));

@@ -14,10 +14,11 @@
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
 a { color: var(--accent); text-decoration: none; }
-button, input, select { font: inherit; }
-button, input, select {
+button, input, select, textarea { font: inherit; }
+button, input, select, textarea {
   width: 100%; border-radius: 10px; border: 1px solid #334055; background: #0d1219; color: var(--text); padding: 10px 12px;
 }
+textarea { resize: vertical; min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 button { width: auto; cursor: pointer; background: #182130; }
 button.primary { background: #1d3651; border-color: #315781; }
 button.danger { background: #341b21; border-color: #6a313d; }

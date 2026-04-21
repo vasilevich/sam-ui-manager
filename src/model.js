@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { nanoid } from 'nanoid';
 import { HOST, REPO_DIR } from './config.js';
-import { encrypt } from './secure.js';
+import { decrypt, encrypt } from './secure.js';
 
 // Supported repository authentication modes exposed in the UI.
 export const AUTH = ['public', 'https_credentials', 'https_token', 'ssh'];
@@ -51,6 +51,7 @@ export function normalizeApp(app = {}) {
     authUsername: String(app.authUsername || '').trim(),
     sshKeyName: String(app.sshKeyName || '').trim(),
     secretEnc: String(app.secretEnc || ''),
+    envEnc: String(app.envEnc || ''),
     remoteAttachments: Array.isArray(app.remoteAttachments) ? app.remoteAttachments.map(normalizeAttachment).filter((item) => item.bindPort) : [],
     createdAt: app.createdAt || new Date().toISOString(),
     updatedAt: app.updatedAt || new Date().toISOString(),
@@ -65,6 +66,8 @@ export function validateInput(body, current = null) {
   const next = normalizeApp({ ...current, ...body, secretEnc: current?.secretEnc || '' });
   const username = String((body.authUsername ?? current?.authUsername) || '').trim();
   const secretInput = String(body.secret || '').trim();
+  const envTextProvided = Object.prototype.hasOwnProperty.call(body || {}, 'envText');
+  const envText = String(body.envText || '').replace(/\r\n/g, '\n');
 
   // Repository URL and auth mode must match each other to avoid silent auth confusion.
   if (!next.repoUrl) throw new Error('missing repository URL');
@@ -80,6 +83,16 @@ export function validateInput(body, current = null) {
 
   // Store encrypted secret only for HTTPS credential/token modes.
   next.secretEnc = ['public', 'ssh'].includes(next.authMethod) ? '' : secretInput ? encrypt(secretInput) : (current?.secretEnc || '');
+
+  // Optional per-project .env text, encrypted at rest and materialized into repo root on deploy/start.
+  if (envTextProvided) {
+    if (!envText.trim()) next.envEnc = '';
+    else {
+      const prev = current?.envEnc ? decrypt(current.envEnc) : '';
+      next.envEnc = prev === envText ? (current?.envEnc || encrypt(envText)) : encrypt(envText);
+    }
+  } else next.envEnc = current?.envEnc || '';
+
   next.updatedAt = new Date().toISOString();
   return next;
 }
@@ -88,6 +101,7 @@ export function validateInput(body, current = null) {
 export const publicApp = (app, proc = null) => ({
   ...app,
   hasSecret: Boolean(app.secretEnc),
+  hasEnvFile: Boolean(app.envEnc),
   authLabel: authLabel(app.authMethod),
   sshKeyLabel: app.authMethod === 'ssh'
     ? (!app.sshKeyName

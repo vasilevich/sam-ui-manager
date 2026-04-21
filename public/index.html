@@ -58,6 +58,12 @@
             </div>
           </div>
 
+          <div class="group">
+            <label for="envText">Project .env (optional)</label>
+            <textarea id="envText" name="envText" rows="8" placeholder="KEY=value\nANOTHER_KEY=value"></textarea>
+            <div class="helper">Stored in manager DB and written to repo root as <code>.env</code> on deploy/start. Leave empty to remove.</div>
+          </div>
+
           <div class="subpanel">
             <div class="section-title">Repository authentication</div>
             <div class="group">

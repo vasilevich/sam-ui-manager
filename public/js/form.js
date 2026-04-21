@@ -50,6 +50,7 @@ export function resetForm() {
   $('saveBtn').textContent = 'Add Project';
   hide('cancelEditBtn');
   $('secretState').textContent = '';
+  $('envText').value = '';
   lastSshKeys = [];
   $('sshKeyName').innerHTML = '';
   $('sshKeyName').value = '';
@@ -60,16 +61,23 @@ export function resetForm() {
   syncAuthFields();
 }
 
-export function editProject(id) {
+export async function editProject(id) {
   const app = byId(id); if (!app) return;
   state.editingId = id;
   ['name', 'repoUrl', 'branch', 'subdir', 'port', 'authMethod', 'authUsername', 'sshKeyName'].forEach((k) => { $(k).value = app[k] || (k === 'subdir' ? '.' : ''); });
   $('secret').value = '';
+  $('envText').value = '';
   $('sshKeyName').dataset.pendingValue = app.sshKeyName || '';
   $('formTitle').textContent = `Edit project: ${app.name}`;
   $('saveBtn').textContent = 'Save Changes';
   show('cancelEditBtn', 'inline-block');
   $('secretState').textContent = app.hasSecret ? 'A secret is already stored. Leave this blank to keep it, or enter a new one to replace it.' : 'No secret stored yet.';
+  try {
+    const env = await api(`/api/apps/${id}/env`);
+    $('envText').value = env.envText || '';
+  } catch (error) {
+    showBanner(`Could not load stored .env content: ${error.message}`, 'warn');
+  }
   syncAuthFields();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
