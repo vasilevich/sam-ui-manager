@@ -72,7 +72,7 @@ export function validateInput(body, current = null) {
   if (/^https?:\/\/[^/\s@]+@/i.test(next.repoUrl)) throw new Error('put credentials in auth fields, not in the repository URL');
   if (next.authMethod === 'ssh' && !isSshRepoUrl(next.repoUrl)) throw new Error('SSH mode expects an SSH clone URL like user@host:org/repo.git or ssh://user@host/org/repo.git');
   if (next.authMethod !== 'ssh' && !/^https:\/\//i.test(next.repoUrl)) throw new Error('use an HTTPS clone URL for this auth mode');
-  if (next.authMethod === 'ssh' && next.sshKeyName && !/^[A-Za-z0-9._-]+\.pub$/.test(next.sshKeyName)) throw new Error('invalid SSH key selection');
+  if (next.authMethod === 'ssh' && next.sshKeyName && !(/^(file:)?[A-Za-z0-9._-]+\.pub$/.test(next.sshKeyName) || /^agent:[A-Za-z0-9._-]+$/.test(next.sshKeyName))) throw new Error('invalid SSH key selection');
   if (next.authMethod === 'https_credentials' && !username) throw new Error('username is required');
   if (!['public', 'ssh'].includes(next.authMethod) && !secretInput && !current?.secretEnc) throw new Error('token or password is required');
   next.authUsername = username;
@@ -89,7 +89,13 @@ export const publicApp = (app, proc = null) => ({
   ...app,
   hasSecret: Boolean(app.secretEnc),
   authLabel: authLabel(app.authMethod),
-  sshKeyLabel: app.authMethod === 'ssh' ? (app.sshKeyName || 'System default / ssh-agent (not pinned)') : null,
+  sshKeyLabel: app.authMethod === 'ssh'
+    ? (!app.sshKeyName
+      ? 'System default / ssh-agent (not pinned)'
+      : app.sshKeyName.startsWith('agent:')
+        ? `${app.sshKeyName.slice('agent:'.length)} (ssh-agent)`
+        : app.sshKeyName.replace(/^file:/, ''))
+    : null,
   repoHint: repoHint(app.repoUrl),
   status: proc?.pm2_env?.status || 'stopped',
   pid: proc?.pid || null,

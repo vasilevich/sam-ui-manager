@@ -43,7 +43,11 @@ const normalizeGitError = (error, app) => {
     return 'SSH host key verification failed even after auto-trusting new hosts. If this host recently changed keys, delete data/ssh-known-hosts and try again.';
   }
   if (/permission denied \(publickey\)/i.test(text)) {
-    const sshLabel = app?.authMethod === 'ssh' ? resolveGitSshConfig(app).label : '';
+    let sshLabel = '';
+    if (app?.authMethod === 'ssh') {
+      try { sshLabel = resolveGitSshConfig(app).label; }
+      catch { sshLabel = app.sshKeyName || ''; }
+    }
     return `SSH authentication failed${sshLabel ? ` using ${sshLabel}` : ''}. Add the matching public key to your Git provider or choose a different SSH key.`;
   }
   return text || 'git operation failed';

@@ -93,12 +93,12 @@ const formatSshKeys = (keys = []) => {
 };
 
 const renderSshKeyOptions = (keys = []) => {
-  const current = String($('sshKeyName').dataset.pendingValue || $('sshKeyName').value || '').trim();
-  const fileKeys = keys.filter((entry) => entry.source === 'file');
-  const options = [{ value: '', label: 'System default / ssh-agent (not pinned)' }, ...fileKeys.map((entry) => ({ value: entry.name, label: entry.name }))];
-  if (current && !options.some((item) => item.value === current)) options.push({ value: current, label: `${current} (missing)` });
+  const rawCurrent = String($('sshKeyName').dataset.pendingValue || $('sshKeyName').value || '').trim();
+  const normalizedCurrent = rawCurrent && !rawCurrent.includes(':') && /\.pub$/.test(rawCurrent) ? `file:${rawCurrent}` : rawCurrent;
+  const options = [{ value: '', label: 'System default / ssh-agent (not pinned)' }, ...keys.map((entry) => ({ value: entry.id || `${entry.source}:${entry.name}`, label: entry.source === 'file' ? entry.name : `${entry.name} (ssh-agent)` }))];
+  if (normalizedCurrent && !options.some((item) => item.value === normalizedCurrent)) options.push({ value: normalizedCurrent, label: `${normalizedCurrent} (missing)` });
   $('sshKeyName').innerHTML = options.map((item) => `<option value="${item.value}">${item.label}</option>`).join('');
-  $('sshKeyName').value = options.some((item) => item.value === current) ? current : '';
+  $('sshKeyName').value = options.some((item) => item.value === normalizedCurrent) ? normalizedCurrent : '';
   $('sshKeyName').dataset.pendingValue = '';
 };
 
@@ -166,7 +166,7 @@ export async function generateNewSshKey() {
 const selectedSshKey = () => {
   const selectedName = String($('sshKeyName').value || '').trim();
   if (!selectedName) return null;
-  return lastSshKeys.find((item) => item.name === selectedName) || null;
+  return lastSshKeys.find((item) => (item.id || `${item.source}:${item.name}`) === selectedName || item.name === selectedName) || null;
 };
 
 export async function copySelectedSshKey() {

@@ -53,6 +53,7 @@ const collectFileKeys = () => {
         const parsed = parsePublicKey(publicKey);
         if (!parsed) return null;
         return {
+          id: `file:${name}`,
           source: 'file',
           name,
           preview: keyPreview(publicKey),
@@ -76,6 +77,7 @@ const collectAgentKeys = async () => {
         const parsed = parsePublicKey(publicKey);
         if (!parsed) return null;
         return {
+          id: `agent:agent-${idx + 1}`,
           source: 'agent',
           name: `agent-${idx + 1}`,
           preview: keyPreview(publicKey),
@@ -163,27 +165,42 @@ export async function deleteFileBackedPublicKey(name = '') {
 }
 
 export function resolveGitSshConfig(app = {}) {
-  const selectedName = String(app.sshKeyName || '').trim();
-  if (!selectedName) {
+  const selectedRef = String(app.sshKeyName || '').trim();
+  if (!selectedRef) {
     return {
+      keyRef: '',
       publicKeyName: '',
       label: 'System default / ssh-agent (not pinned)',
       command: gitSshCommand()
     };
   }
 
+  if (/^agent:[A-Za-z0-9._-]+$/.test(selectedRef)) {
+    const agentName = selectedRef.slice('agent:'.length);
+    return {
+      keyRef: selectedRef,
+      publicKeyName: '',
+      label: `${agentName} (ssh-agent)`,
+      command: gitSshCommand()
+    };
+  }
+
+  const selectedName = selectedRef.replace(/^file:/, '');
   if (!/^[A-Za-z0-9._-]+\.pub$/.test(selectedName)) throw new Error('invalid SSH key selection');
   const entry = collectFileKeys().find((item) => item.name === selectedName);
-  if (!entry) throw new Error(`selected SSH key not found: ${selectedName}`);
+  if (!entry) throw new Error(`selected SSH key not found: ${selectedRef}`);
 
   const privateKeyPath = join(SSH_DIR, selectedName.slice(0, -4));
   if (!existsSync(privateKeyPath)) throw new Error(`private key file missing for selected SSH key: ${selectedName}`);
 
   return {
+    keyRef: `file:${selectedName}`,
     publicKeyName: selectedName,
     label: selectedName,
     privateKeyPath,
     command: gitSshCommand(privateKeyPath)
   };
 }
+
+
 

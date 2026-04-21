@@ -31,6 +31,7 @@ Current running dashboard example:
 - Auto host-trust-on-first-connect for SSH remotes (`data/ssh-known-hosts`)
 - Built-in remote URL attachments (`bindHost:bindPort -> local SAM port`)
 - [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) status + deploy logs + stderr/stdout in the same dashboard
+- Robust support for SAM `BuildMethod: makefile` projects with explicit preflight checks for `make` and language toolchain binaries
 
 ## Requirements
 
@@ -170,6 +171,21 @@ npm start
 - `sam --version` should work in same shell
 - `docker info` should succeed
 - If needed, see [SAM CLI troubleshooting](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-troubleshooting.html)
+
+### Makefile builder projects fail before build starts
+
+If your template uses `Metadata.BuildMethod: makefile`, this manager now checks required tools before running `sam build`.
+
+- Missing `make` -> install build tools in the build environment
+- Missing language toolchain (for Go projects: `go`) -> install toolchain in the build environment
+
+Install hints:
+
+- Ubuntu/Debian: `apt-get install -y make golang`
+- Alpine: `apk add --no-cache make go`
+- Amazon Linux/RHEL: `yum install -y make golang`
+
+Deploy logs also print build diagnostics (`cwd`, template path, tool versions, and `PATH`) to make failures easier to debug.
 
 ### Deploy works but endpoint fails
 
