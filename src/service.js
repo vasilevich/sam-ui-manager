@@ -9,6 +9,7 @@ import { deployLog, pm2ErrLog, pm2OutLog, resetLog, tail } from './logs.js';
 import { syncRepo } from './git.js';
 import { runSamBuild } from './sam.js';
 import { ensureAttachmentProxy, stopAppProxies, stopAttachmentProxy, syncAppProxies } from './proxy.js';
+import { resolveGitSshConfig } from './ssh.js';
 
 // Per-app in-memory lock map. Prevents overlapping deploy/start/stop operations
 // for the same project, which could corrupt state or produce confusing logs.
@@ -89,6 +90,7 @@ export async function createApp(body) {
   // Validate user input and choose a free port if caller omitted one.
   const apps = getApps();
   const app = validateInput({ ...body, port: body.port || await suggestPort(apps) });
+  if (app.authMethod === 'ssh' && app.sshKeyName) resolveGitSshConfig(app);
   app.port = await ensurePort(app.port, apps);
   apps.push(app);
   await saveApps(apps);
@@ -102,12 +104,13 @@ export async function updateApp(id, body) {
   if (i < 0) throw new Error('not found');
   const before = apps[i];
   const app = validateInput({ ...before, ...body }, before);
+  if (app.authMethod === 'ssh' && app.sshKeyName) resolveGitSshConfig(app);
   app.port = body.port ? await ensurePort(app.port, apps, id) : before.port;
   apps[i] = app;
   await saveApps(apps);
   const live = await sanitize(app);
   // Tell UI when config drift means "restart" is required to apply changes.
-  const restartRequired = live.status === 'online' && ['repoUrl', 'branch', 'subdir', 'port', 'authMethod', 'authUsername'].some((k) => String(before[k] || '') !== String(app[k] || ''));
+  const restartRequired = live.status === 'online' && ['repoUrl', 'branch', 'subdir', 'port', 'authMethod', 'authUsername', 'sshKeyName'].some((k) => String(before[k] || '') !== String(app[k] || ''));
   return { app: live, restartRequired };
 }
 

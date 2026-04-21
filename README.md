@@ -27,7 +27,7 @@ Current running dashboard example:
 
 - Multi-project [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) management from one UI
 - Git auth modes: `public`, `https_credentials`, `https_token`, `ssh`
-- SSH helper UX: view all public keys, generate one if missing, generate brand-new keys on demand, copy selected keys, and delete selected file-backed keys
+- SSH helper UX: view all public keys, generate one if missing, generate brand-new keys on demand, pin a specific file-backed key per project, copy selected keys, and delete selected file-backed keys
 - Auto host-trust-on-first-connect for SSH remotes (`data/ssh-known-hosts`)
 - Built-in remote URL attachments (`bindHost:bindPort -> local SAM port`)
 - [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) status + deploy logs + stderr/stdout in the same dashboard

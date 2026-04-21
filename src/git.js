@@ -5,13 +5,13 @@ import { ASKPASS_FILE, ROOT } from './config.js';
 import { decrypt } from './secure.js';
 import { repoDir } from './model.js';
 import { appendLogSafe } from './logs.js';
-import { gitSshCommand } from './ssh.js';
+import { resolveGitSshConfig } from './ssh.js';
 
 // Build process environment for Git based on selected authentication mode.
 // The app forces non-interactive auth to avoid hanging prompts in background jobs.
 const envFor = (app) => {
   if (app.authMethod === 'public') return { GIT_TERMINAL_PROMPT: '0' };
-  if (app.authMethod === 'ssh') return { GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: gitSshCommand() };
+  if (app.authMethod === 'ssh') return { GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: resolveGitSshConfig(app).command };
   return {
     GIT_TERMINAL_PROMPT: '0',
     GIT_ASKPASS: ASKPASS_FILE,
@@ -37,10 +37,14 @@ const optionsFor = (baseDir, app) => ({
 // Create a simple-git client with auth env pre-wired.
 const git = (baseDir, app) => Object.entries(envFor(app)).reduce((g, [k, v]) => g.env(k, v), simpleGit(optionsFor(baseDir, app)));
 
-const normalizeGitError = (error) => {
+const normalizeGitError = (error, app) => {
   const text = String(error?.stderr || error?.message || error?.shortMessage || '').trim();
   if (/host key verification failed/i.test(text)) {
     return 'SSH host key verification failed even after auto-trusting new hosts. If this host recently changed keys, delete data/ssh-known-hosts and try again.';
+  }
+  if (/permission denied \(publickey\)/i.test(text)) {
+    const sshLabel = app?.authMethod === 'ssh' ? resolveGitSshConfig(app).label : '';
+    return `SSH authentication failed${sshLabel ? ` using ${sshLabel}` : ''}. Add the matching public key to your Git provider or choose a different SSH key.`;
   }
   return text || 'git operation failed';
 };
@@ -48,6 +52,10 @@ const normalizeGitError = (error) => {
 export async function syncRepo(app, logFile) {
   const dir = repoDir(app);
   const root = git(ROOT, app);
+  if (app.authMethod === 'ssh') {
+    const sshConfig = resolveGitSshConfig(app);
+    await appendLogSafe(logFile, `$ using SSH key: ${sshConfig.label}\n`);
+  }
 
   // Validate branch existence up front so users get a clean error before clone/fetch.
   await appendLogSafe(logFile, '\n$ git ls-remote --heads <repo> <branch>\n');
@@ -55,7 +63,7 @@ export async function syncRepo(app, logFile) {
   try {
     heads = await root.listRemote(['--heads', app.repoUrl, app.branch]);
   } catch (error) {
-    throw new Error(normalizeGitError(error));
+    throw new Error(normalizeGitError(error, app));
   }
   if (!heads.trim()) throw new Error(`branch not found: ${app.branch}`);
 
@@ -68,7 +76,7 @@ export async function syncRepo(app, logFile) {
       await appendLogSafe(logFile, '$ git checkout -B <branch> origin/<branch>\n');
       await repo.checkout(['-B', app.branch, `origin/${app.branch}`]);
     } catch (error) {
-      throw new Error(normalizeGitError(error));
+      throw new Error(normalizeGitError(error, app));
     }
     return;
   }
@@ -78,6 +86,6 @@ export async function syncRepo(app, logFile) {
     await appendLogSafe(logFile, '$ git clone --branch <branch> <repo>\n');
     await root.clone(app.repoUrl, dir, ['--branch', app.branch, '--single-branch']);
   } catch (error) {
-    throw new Error(normalizeGitError(error));
+    throw new Error(normalizeGitError(error, app));
   }
 }

@@ -2,14 +2,15 @@ import { api } from './api.js';
 import { state } from './store.js';
 import { $, showBanner } from './helpers.js';
 import { closeLogs, renderProjects, renderStats } from './render.js';
-import { copySelectedSshKey, deleteSelectedSshKey, editProject, ensureSshKey, generateNewSshKey, pickPort, resetForm, showSshKeys, submitForm, syncAuthFields } from './form.js';
+import { copySelectedSshKey, deleteSelectedSshKey, editProject, ensureSshKey, generateNewSshKey, pickPort, resetForm, showSshKeys, submitForm, syncAuthFields, syncSelectedSshKeyUi } from './form.js';
 import * as actions from './actions.js';
 
 async function refresh(silent = true) {
   try {
     state.meta = await api('/api/meta');
     state.apps = (await api('/api/apps')).apps || [];
-    if (!state.editingId && !$('port').value) $('port').value = state.meta.suggestedPort || '';
+    const portInput = $('port');
+    if (!state.editingId && !portInput.value) portInput.value = state.meta.suggestedPort || '';
     renderStats();
     renderProjects();
     if (!silent) showBanner('Refreshed.');
@@ -37,6 +38,7 @@ $('suggestPortBtn').addEventListener('click', pickPort);
 $('checkSshKeysBtn').addEventListener('click', showSshKeys);
 $('generateSshKeyBtn').addEventListener('click', ensureSshKey);
 $('generateNewSshKeyBtn').addEventListener('click', generateNewSshKey);
+$('sshKeyName').addEventListener('change', syncSelectedSshKeyUi);
 $('copySelectedSshKeyBtn').addEventListener('click', copySelectedSshKey);
 $('deleteSelectedSshKeyBtn').addEventListener('click', deleteSelectedSshKey);
 $('cancelEditBtn').addEventListener('click', resetForm);

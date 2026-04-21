@@ -14,12 +14,18 @@ const shellQuote = (value = '') => `"${String(value).replace(/(["\\])/g, '\\$1')
 // Keep SSH non-interactive and accept new host keys automatically into an app-local file.
 // This avoids the common first-connection "Host key verification failed" error while still
 // rejecting changed host keys on later connections.
-export const gitSshCommand = () => [
-  'ssh',
-  '-o', 'BatchMode=yes',
-  '-o', 'StrictHostKeyChecking=accept-new',
-  '-o', `UserKnownHostsFile=${shellQuote(KNOWN_HOSTS_FILE.replace(/\\/g, '/'))}`
-].join(' ');
+export const gitSshCommand = (identityFile = '') => {
+  const args = [
+    'ssh',
+    '-o', 'BatchMode=yes',
+    '-o', 'StrictHostKeyChecking=accept-new',
+    '-o', `UserKnownHostsFile=${shellQuote(KNOWN_HOSTS_FILE.replace(/\\/g, '/'))}`
+  ];
+  if (identityFile) {
+    args.push('-o', 'IdentitiesOnly=yes', '-i', shellQuote(String(identityFile).replace(/\\/g, '/')));
+  }
+  return args.join(' ');
+};
 
 // Public keys are safe to show in UI; private keys are never read or returned.
 const parsePublicKey = (line = '') => {
@@ -154,5 +160,30 @@ export async function deleteFileBackedPublicKey(name = '') {
 
   const keys = await listUsablePublicKeys();
   return { deleted: pubName, keys };
+}
+
+export function resolveGitSshConfig(app = {}) {
+  const selectedName = String(app.sshKeyName || '').trim();
+  if (!selectedName) {
+    return {
+      publicKeyName: '',
+      label: 'System default / ssh-agent (not pinned)',
+      command: gitSshCommand()
+    };
+  }
+
+  if (!/^[A-Za-z0-9._-]+\.pub$/.test(selectedName)) throw new Error('invalid SSH key selection');
+  const entry = collectFileKeys().find((item) => item.name === selectedName);
+  if (!entry) throw new Error(`selected SSH key not found: ${selectedName}`);
+
+  const privateKeyPath = join(SSH_DIR, selectedName.slice(0, -4));
+  if (!existsSync(privateKeyPath)) throw new Error(`private key file missing for selected SSH key: ${selectedName}`);
+
+  return {
+    publicKeyName: selectedName,
+    label: selectedName,
+    privateKeyPath,
+    command: gitSshCommand(privateKeyPath)
+  };
 }
 

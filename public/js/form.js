@@ -31,7 +31,8 @@ export function syncAuthFields() {
   if (method !== 'ssh') {
     lastSshKeys = [];
     $('sshKeysOutput').textContent = '';
-    $('sshKeySelect').innerHTML = '';
+    $('sshKeyName').innerHTML = '';
+    $('sshKeyName').dataset.pendingValue = '';
     $('copySelectedSshKeyBtn').disabled = true;
     $('deleteSelectedSshKeyBtn').disabled = true;
     return;
@@ -50,7 +51,9 @@ export function resetForm() {
   hide('cancelEditBtn');
   $('secretState').textContent = '';
   lastSshKeys = [];
-  $('sshKeySelect').innerHTML = '';
+  $('sshKeyName').innerHTML = '';
+  $('sshKeyName').value = '';
+  $('sshKeyName').dataset.pendingValue = '';
   $('copySelectedSshKeyBtn').disabled = true;
   $('deleteSelectedSshKeyBtn').disabled = true;
   if (state.meta?.suggestedPort) $('port').value = state.meta.suggestedPort;
@@ -60,8 +63,9 @@ export function resetForm() {
 export function editProject(id) {
   const app = byId(id); if (!app) return;
   state.editingId = id;
-  ['name', 'repoUrl', 'branch', 'subdir', 'port', 'authMethod', 'authUsername'].forEach((k) => { $(k).value = app[k] || (k === 'subdir' ? '.' : ''); });
+  ['name', 'repoUrl', 'branch', 'subdir', 'port', 'authMethod', 'authUsername', 'sshKeyName'].forEach((k) => { $(k).value = app[k] || (k === 'subdir' ? '.' : ''); });
   $('secret').value = '';
+  $('sshKeyName').dataset.pendingValue = app.sshKeyName || '';
   $('formTitle').textContent = `Edit project: ${app.name}`;
   $('saveBtn').textContent = 'Save Changes';
   show('cancelEditBtn', 'inline-block');
@@ -88,15 +92,28 @@ const formatSshKeys = (keys = []) => {
   return [`Found ${keys.length} key(s):`, '', ...keys.map((entry, idx) => `#${idx + 1} (${entry.source}) ${entry.name}\n${entry.publicKey}`)].join('\n\n');
 };
 
+const renderSshKeyOptions = (keys = []) => {
+  const current = String($('sshKeyName').dataset.pendingValue || $('sshKeyName').value || '').trim();
+  const fileKeys = keys.filter((entry) => entry.source === 'file');
+  const options = [{ value: '', label: 'System default / ssh-agent (not pinned)' }, ...fileKeys.map((entry) => ({ value: entry.name, label: entry.name }))];
+  if (current && !options.some((item) => item.value === current)) options.push({ value: current, label: `${current} (missing)` });
+  $('sshKeyName').innerHTML = options.map((item) => `<option value="${item.value}">${item.label}</option>`).join('');
+  $('sshKeyName').value = options.some((item) => item.value === current) ? current : '';
+  $('sshKeyName').dataset.pendingValue = '';
+};
+
+export function syncSelectedSshKeyUi() {
+  const selected = selectedSshKey();
+  $('copySelectedSshKeyBtn').disabled = !selected?.publicKey;
+  $('deleteSelectedSshKeyBtn').disabled = !(selected?.source === 'file');
+}
+
 const renderSshKeys = (keys = []) => {
   lastSshKeys = Array.isArray(keys) ? keys : [];
   show('sshWrap');
-  $('sshKeySelect').innerHTML = lastSshKeys.length
-    ? lastSshKeys.map((entry, idx) => `<option value="${idx}">${entry.source}: ${entry.name}</option>`).join('')
-    : '<option value="">No keys loaded</option>';
+  renderSshKeyOptions(lastSshKeys);
   $('sshKeysOutput').textContent = formatSshKeys(lastSshKeys);
-  $('copySelectedSshKeyBtn').disabled = !lastSshKeys.length;
-  $('deleteSelectedSshKeyBtn').disabled = !lastSshKeys.some((item) => item.source === 'file');
+  syncSelectedSshKeyUi();
   $('sshKeysOutput').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 };
 
@@ -147,9 +164,9 @@ export async function generateNewSshKey() {
 }
 
 const selectedSshKey = () => {
-  const idx = Number($('sshKeySelect').value);
-  if (!Number.isInteger(idx) || idx < 0) return null;
-  return lastSshKeys[idx] || null;
+  const selectedName = String($('sshKeyName').value || '').trim();
+  if (!selectedName) return null;
+  return lastSshKeys.find((item) => item.name === selectedName) || null;
 };
 
 export async function copySelectedSshKey() {
@@ -189,6 +206,7 @@ export async function deleteSelectedSshKey() {
   setSshButtonsDisabled(true);
   try {
     const res = await api(`/api/ssh/keys/${encodeURIComponent(selected.name)}`, { method: 'DELETE' });
+    $('sshKeyName').value = '';
     renderSshKeys(res.keys || []);
     showBanner(`Deleted ${res.deleted}.`, 'good');
   } catch (e) {

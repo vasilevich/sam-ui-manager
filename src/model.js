@@ -49,6 +49,7 @@ export function normalizeApp(app = {}) {
     port: Number(app.port || 0) || null,
     authMethod: AUTH.includes(app.authMethod) ? app.authMethod : 'public',
     authUsername: String(app.authUsername || '').trim(),
+    sshKeyName: String(app.sshKeyName || '').trim(),
     secretEnc: String(app.secretEnc || ''),
     remoteAttachments: Array.isArray(app.remoteAttachments) ? app.remoteAttachments.map(normalizeAttachment).filter((item) => item.bindPort) : [],
     createdAt: app.createdAt || new Date().toISOString(),
@@ -71,9 +72,11 @@ export function validateInput(body, current = null) {
   if (/^https?:\/\/[^/\s@]+@/i.test(next.repoUrl)) throw new Error('put credentials in auth fields, not in the repository URL');
   if (next.authMethod === 'ssh' && !isSshRepoUrl(next.repoUrl)) throw new Error('SSH mode expects an SSH clone URL like user@host:org/repo.git or ssh://user@host/org/repo.git');
   if (next.authMethod !== 'ssh' && !/^https:\/\//i.test(next.repoUrl)) throw new Error('use an HTTPS clone URL for this auth mode');
+  if (next.authMethod === 'ssh' && next.sshKeyName && !/^[A-Za-z0-9._-]+\.pub$/.test(next.sshKeyName)) throw new Error('invalid SSH key selection');
   if (next.authMethod === 'https_credentials' && !username) throw new Error('username is required');
   if (!['public', 'ssh'].includes(next.authMethod) && !secretInput && !current?.secretEnc) throw new Error('token or password is required');
   next.authUsername = username;
+  next.sshKeyName = next.authMethod === 'ssh' ? String(next.sshKeyName || '').trim() : '';
 
   // Store encrypted secret only for HTTPS credential/token modes.
   next.secretEnc = ['public', 'ssh'].includes(next.authMethod) ? '' : secretInput ? encrypt(secretInput) : (current?.secretEnc || '');
@@ -86,6 +89,7 @@ export const publicApp = (app, proc = null) => ({
   ...app,
   hasSecret: Boolean(app.secretEnc),
   authLabel: authLabel(app.authMethod),
+  sshKeyLabel: app.authMethod === 'ssh' ? (app.sshKeyName || 'System default / ssh-agent (not pinned)') : null,
   repoHint: repoHint(app.repoUrl),
   status: proc?.pm2_env?.status || 'stopped',
   pid: proc?.pid || null,

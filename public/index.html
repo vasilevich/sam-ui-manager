@@ -81,6 +81,11 @@
             </div>
             <div id="sshWrap">
               <div class="helper">Uses the machine's existing SSH keys or ssh-agent.</div>
+              <div class="group">
+                <label for="sshKeyName">Git SSH Key To Use</label>
+                <select id="sshKeyName" name="sshKeyName"></select>
+                <div class="helper">Pick a specific file-backed key for this project, or leave it on system default / ssh-agent.</div>
+              </div>
               <div class="row ssh-key-actions">
                 <button type="button" id="checkSshKeysBtn">Show Available Public Keys</button>
                 <button type="button" class="primary" id="generateSshKeyBtn">Generate SSH Key If Missing</button>
