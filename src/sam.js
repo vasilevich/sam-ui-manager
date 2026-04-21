@@ -11,6 +11,8 @@ export const builtTemplate = (app) => ['.aws-sam/build/template.yaml', '.aws-sam
 const toAbsolute = (cwd, rel = '') => resolve(join(cwd, rel));
 const hasMakefileBuildMethod = (templateFile) => /(^|\n)\s*BuildMethod\s*:\s*makefile\s*(\n|$)/i.test(readFileSync(templateFile, 'utf8'));
 const detectEnvVarsFile = (cwd) => ['env.json', 'env.local.json', 'env.example.json'].find((name) => existsSync(join(cwd, name))) || null;
+const hasGoModule = (cwd) => existsSync(join(cwd, 'go.mod'));
+const isMissingGoSumError = (text = '') => /missing go\.sum entry/i.test(String(text || ''));
 
 const runVersionCheck = async (cmd, args = ['--version'], runner = execa) => {
   try {
@@ -79,11 +81,39 @@ export async function runSamBuild(app, logFile, { runner = execa } = {}) {
   await appendLogSafe(logFile, `$ BuildMethod makefile detected: ${usesMakefileBuilder ? 'yes' : 'no'}\n`);
   await appendLogSafe(logFile, `$ Tool diagnostics: sam=${diagnostics.sam}; docker=${diagnostics.docker}${diagnostics.make ? `; make=${diagnostics.make}` : ''}${diagnostics.go ? `; go=${diagnostics.go}` : ''}\n`);
   await appendLogSafe(logFile, `$ PATH: ${diagnostics.path}\n`);
-  try {
+
+  const runBuildCommand = async () => {
     const { all } = await runner('sam', command, { cwd, all: true });
     await appendLogSafe(logFile, `${all || ''}\n`);
+  };
+  try {
+    await runBuildCommand();
   } catch (error) {
-    await appendLogSafe(logFile, `${error.all || error.stderr || error.message || ''}\n`);
+    const rawError = String(error.all || error.stderr || error.message || '').trim();
+    await appendLogSafe(logFile, `${rawError}\n`);
+
+    // Common Go makefile failure: dependencies not yet in go.sum.
+    // Self-heal by running `go mod tidy` once, then retry the same sam build.
+    if (usesMakefileBuilder && hasGoModule(cwd) && isMissingGoSumError(rawError)) {
+      await appendLogSafe(logFile, '$ go mod tidy\n');
+      try {
+        const { all } = await runner('go', ['mod', 'tidy'], { cwd, all: true });
+        await appendLogSafe(logFile, `${all || ''}\n`);
+      } catch (tidyError) {
+        await appendLogSafe(logFile, `${tidyError.all || tidyError.stderr || tidyError.message || ''}\n`);
+        throw new Error((tidyError.stderr || tidyError.shortMessage || tidyError.message || 'go mod tidy failed').trim());
+      }
+
+      await appendLogSafe(logFile, '$ sam build --template-file <template> (retry after go mod tidy)\n');
+      try {
+        await runBuildCommand();
+        return;
+      } catch (retryError) {
+        await appendLogSafe(logFile, `${retryError.all || retryError.stderr || retryError.message || ''}\n`);
+        throw new Error((retryError.stderr || retryError.shortMessage || retryError.message || 'sam build failed').trim());
+      }
+    }
+
     throw new Error((error.stderr || error.shortMessage || error.message || 'sam build failed').trim());
   }
 }

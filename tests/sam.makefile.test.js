@@ -108,6 +108,47 @@ test('makefile fixture detects capabilities and builds with explicit template pa
   }
 });
 
+test('makefile build auto-runs go mod tidy and retries once on missing go.sum', async () => {
+  const { app, target } = stageFixture('makefile-go');
+  const logPath = join(mkdtempSync(join(tmpdir(), 'sam-ui-manager-test-')), 'deploy.log');
+  const calls = [];
+  let buildAttempts = 0;
+
+  try {
+    writeFileSync(join(target, 'go.mod'), 'module sample\n\ngo 1.22\n');
+    const runner = async (cmd, args, opts = {}) => {
+      calls.push({ cmd, args, cwd: opts.cwd || '' });
+      if (cmd === 'sam' && args[0] === '--version') return { stdout: 'SAM CLI, version 1.120.0' };
+      if (cmd === 'docker' && args[0] === '--version') return { stdout: 'Docker version 26.0.0' };
+      if (cmd === 'docker' && args[0] === 'info') return { stdout: 'ok' };
+      if (cmd === 'make') return { stdout: 'GNU Make 4.4.1' };
+      if (cmd === 'go' && args[0] === 'version') return { stdout: 'go version go1.22.1 linux/amd64' };
+      if (cmd === 'go' && args[0] === 'mod' && args[1] === 'tidy') return { all: 'tidy ok' };
+      if (cmd === 'sam' && args[0] === 'build') {
+        buildAttempts += 1;
+        if (buildAttempts === 1) {
+          const err = new Error('build failed');
+          err.all = 'missing go.sum entry for module providing package github.com/aws/aws-lambda-go/lambda';
+          throw err;
+        }
+        return { all: 'Build Succeeded' };
+      }
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    };
+
+    await runSamBuild(app, logPath, { runner });
+    assert.equal(buildAttempts, 2, 'sam build should retry once after go mod tidy');
+    assert.equal(calls.some((item) => item.cmd === 'go' && item.args[0] === 'mod' && item.args[1] === 'tidy'), true);
+
+    const logOutput = readFileSync(logPath, 'utf8');
+    assert.match(logOutput, /\$ go mod tidy/);
+    assert.match(logOutput, /retry after go mod tidy/);
+  } finally {
+    cleanup(target);
+    cleanup(join(logPath, '..'));
+  }
+});
+
 test('standard SAM fixture does not require make/go preflight', async () => {
   const { app, target } = stageFixture('standard');
   const logPath = join(mkdtempSync(join(tmpdir(), 'sam-ui-manager-test-')), 'deploy.log');
