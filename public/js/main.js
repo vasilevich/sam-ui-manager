@@ -2,7 +2,7 @@ import { api } from './api.js';
 import { state } from './store.js';
 import { $, showBanner } from './helpers.js';
 import { closeLogs, renderProjects, renderStats } from './render.js';
-import { copyFirstSshKey, editProject, ensureSshKey, pickPort, resetForm, showSshKeys, submitForm, syncAuthFields } from './form.js';
+import { copySelectedSshKey, deleteSelectedSshKey, editProject, ensureSshKey, generateNewSshKey, pickPort, resetForm, showSshKeys, submitForm, syncAuthFields } from './form.js';
 import * as actions from './actions.js';
 
 async function refresh(silent = true) {
@@ -36,7 +36,9 @@ $('authMethod').addEventListener('change', syncAuthFields);
 $('suggestPortBtn').addEventListener('click', pickPort);
 $('checkSshKeysBtn').addEventListener('click', showSshKeys);
 $('generateSshKeyBtn').addEventListener('click', ensureSshKey);
-$('copyFirstSshKeyBtn').addEventListener('click', copyFirstSshKey);
+$('generateNewSshKeyBtn').addEventListener('click', generateNewSshKey);
+$('copySelectedSshKeyBtn').addEventListener('click', copySelectedSshKey);
+$('deleteSelectedSshKeyBtn').addEventListener('click', deleteSelectedSshKey);
 $('cancelEditBtn').addEventListener('click', resetForm);
 $('refreshBtn').addEventListener('click', () => refresh(false));
 $('closeLogsBtn').addEventListener('click', closeLogs);

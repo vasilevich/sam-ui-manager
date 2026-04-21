@@ -31,7 +31,9 @@ export function syncAuthFields() {
   if (method !== 'ssh') {
     lastSshKeys = [];
     $('sshKeysOutput').textContent = '';
-    $('copyFirstSshKeyBtn').disabled = true;
+    $('sshKeySelect').innerHTML = '';
+    $('copySelectedSshKeyBtn').disabled = true;
+    $('deleteSelectedSshKeyBtn').disabled = true;
     return;
   }
   if (!$('sshKeysOutput').textContent.trim()) showSshKeys();
@@ -48,7 +50,9 @@ export function resetForm() {
   hide('cancelEditBtn');
   $('secretState').textContent = '';
   lastSshKeys = [];
-  $('copyFirstSshKeyBtn').disabled = true;
+  $('sshKeySelect').innerHTML = '';
+  $('copySelectedSshKeyBtn').disabled = true;
+  $('deleteSelectedSshKeyBtn').disabled = true;
   if (state.meta?.suggestedPort) $('port').value = state.meta.suggestedPort;
   syncAuthFields();
 }
@@ -74,18 +78,25 @@ export async function pickPort() {
 const setSshButtonsDisabled = (disabled) => {
   $('checkSshKeysBtn').disabled = disabled;
   $('generateSshKeyBtn').disabled = disabled;
+  $('generateNewSshKeyBtn').disabled = disabled;
+  $('copySelectedSshKeyBtn').disabled = disabled || !lastSshKeys.length;
+  $('deleteSelectedSshKeyBtn').disabled = disabled || !lastSshKeys.some((item) => item.source === 'file');
 };
 
 const formatSshKeys = (keys = []) => {
   if (!keys.length) return 'No usable public SSH keys found yet.';
-  return keys.map((entry, idx) => `#${idx + 1} (${entry.source}) ${entry.name}\n${entry.publicKey}`).join('\n\n');
+  return [`Found ${keys.length} key(s):`, '', ...keys.map((entry, idx) => `#${idx + 1} (${entry.source}) ${entry.name}\n${entry.publicKey}`)].join('\n\n');
 };
 
 const renderSshKeys = (keys = []) => {
   lastSshKeys = Array.isArray(keys) ? keys : [];
   show('sshWrap');
+  $('sshKeySelect').innerHTML = lastSshKeys.length
+    ? lastSshKeys.map((entry, idx) => `<option value="${idx}">${entry.source}: ${entry.name}</option>`).join('')
+    : '<option value="">No keys loaded</option>';
   $('sshKeysOutput').textContent = formatSshKeys(lastSshKeys);
-  $('copyFirstSshKeyBtn').disabled = !lastSshKeys.length;
+  $('copySelectedSshKeyBtn').disabled = !lastSshKeys.length;
+  $('deleteSelectedSshKeyBtn').disabled = !lastSshKeys.some((item) => item.source === 'file');
   $('sshKeysOutput').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 };
 
@@ -121,15 +132,36 @@ export async function ensureSshKey() {
   }
 }
 
-export async function copyFirstSshKey() {
-  if (!lastSshKeys.length || !lastSshKeys[0]?.publicKey) {
+export async function generateNewSshKey() {
+  setSshButtonsDisabled(true);
+  try {
+    const res = await api('/api/ssh/keys/new', { method: 'POST' });
+    renderSshKeys(res.keys || []);
+    const createdName = res.created?.name ? ` (${res.created.name})` : '';
+    showBanner(`Generated a new SSH key${createdName}. Copy one of the public keys and add it to your Git provider.`, 'good');
+  } catch (e) {
+    showBanner(e.message, 'bad');
+  } finally {
+    setSshButtonsDisabled(false);
+  }
+}
+
+const selectedSshKey = () => {
+  const idx = Number($('sshKeySelect').value);
+  if (!Number.isInteger(idx) || idx < 0) return null;
+  return lastSshKeys[idx] || null;
+};
+
+export async function copySelectedSshKey() {
+  const selected = selectedSshKey();
+  if (!selected?.publicKey) {
     showBanner('No public SSH key loaded yet. Click "Show Available Public Keys" first.', 'warn');
     return;
   }
-  const key = lastSshKeys[0].publicKey;
+  const key = selected.publicKey;
   try {
     await navigator.clipboard.writeText(key);
-    showBanner('Copied the first public SSH key to clipboard.', 'good');
+    showBanner(`Copied ${selected.name} to clipboard.`, 'good');
   } catch {
     // Fallback for browsers/environments where Clipboard API is unavailable.
     const area = document.createElement('textarea');
@@ -138,7 +170,31 @@ export async function copyFirstSshKey() {
     area.select();
     document.execCommand('copy');
     document.body.removeChild(area);
-    showBanner('Copied the first public SSH key to clipboard.', 'good');
+    showBanner(`Copied ${selected.name} to clipboard.`, 'good');
+  }
+}
+
+export async function deleteSelectedSshKey() {
+  const selected = selectedSshKey();
+  if (!selected) {
+    showBanner('Pick a key first.', 'warn');
+    return;
+  }
+  if (selected.source !== 'file') {
+    showBanner('Only file-backed keys can be deleted from this UI. Agent-only entries cannot be deleted here.', 'warn');
+    return;
+  }
+  if (!window.confirm(`Delete ${selected.name} and its matching private key from ~/.ssh?`)) return;
+
+  setSshButtonsDisabled(true);
+  try {
+    const res = await api(`/api/ssh/keys/${encodeURIComponent(selected.name)}`, { method: 'DELETE' });
+    renderSshKeys(res.keys || []);
+    showBanner(`Deleted ${res.deleted}.`, 'good');
+  } catch (e) {
+    showBanner(e.message, 'bad');
+  } finally {
+    setSshButtonsDisabled(false);
   }
 }
 

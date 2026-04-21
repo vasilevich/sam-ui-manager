@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 import { execa } from 'execa';
@@ -6,6 +6,8 @@ import { KNOWN_HOSTS_FILE } from './config.js';
 
 const SSH_DIR = join(homedir(), '.ssh');
 const DEFAULT_KEY_BASENAME = 'id_ed25519';
+
+const makeComment = (suffix = '') => `sam-ui-manager@${hostname()}${suffix ? `-${suffix}` : ''}`;
 
 const shellQuote = (value = '') => `"${String(value).replace(/(["\\])/g, '\\$1')}"`;
 
@@ -102,7 +104,7 @@ export async function ensurePublicKey() {
   const keyPath = join(SSH_DIR, DEFAULT_KEY_BASENAME);
 
   try {
-    await execa('ssh-keygen', ['-t', 'ed25519', '-C', `sam-ui-manager@${hostname()}`, '-f', keyPath, '-N', '']);
+    await execa('ssh-keygen', ['-t', 'ed25519', '-C', makeComment(), '-f', keyPath, '-N', '']);
   } catch (error) {
     throw new Error(`failed to generate SSH key: ${error.shortMessage || error.message}`);
   }
@@ -110,5 +112,47 @@ export async function ensurePublicKey() {
   const keys = await listUsablePublicKeys();
   if (!keys.length) throw new Error('SSH key generation completed but no public key was found');
   return { generated: true, keys };
+}
+
+const nextGeneratedKeyPath = () => {
+  const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+  for (let index = 0; index < 1000; index += 1) {
+    const suffix = index ? `_${index}` : '';
+    const name = `${DEFAULT_KEY_BASENAME}_samui_${stamp}${suffix}`;
+    const full = join(SSH_DIR, name);
+    if (!existsSync(full) && !existsSync(`${full}.pub`)) return { name, full };
+  }
+  throw new Error('unable to allocate a unique SSH key filename');
+};
+
+export async function generateNewPublicKey() {
+  mkdirSync(SSH_DIR, { recursive: true });
+  const { name, full } = nextGeneratedKeyPath();
+
+  try {
+    await execa('ssh-keygen', ['-t', 'ed25519', '-C', makeComment(name), '-f', full, '-N', '']);
+  } catch (error) {
+    throw new Error(`failed to generate new SSH key: ${error.shortMessage || error.message}`);
+  }
+
+  const keys = await listUsablePublicKeys();
+  const created = keys.find((entry) => entry.source === 'file' && entry.name === `${name}.pub`) || null;
+  if (!keys.length) throw new Error('SSH key generation completed but no public key was found');
+  return { generated: true, created, keys };
+}
+
+export async function deleteFileBackedPublicKey(name = '') {
+  const pubName = String(name || '').trim();
+  if (!/^[A-Za-z0-9._-]+\.pub$/.test(pubName)) throw new Error('invalid SSH public key name');
+
+  const pubPath = join(SSH_DIR, pubName);
+  if (!existsSync(pubPath)) throw new Error('SSH public key file not found');
+
+  const privatePath = join(SSH_DIR, pubName.slice(0, -4));
+  unlinkSync(pubPath);
+  if (existsSync(privatePath)) unlinkSync(privatePath);
+
+  const keys = await listUsablePublicKeys();
+  return { deleted: pubName, keys };
 }
 

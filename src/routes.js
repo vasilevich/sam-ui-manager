@@ -3,7 +3,7 @@ import { networkInterfaces } from 'node:os';
 import { HOST, PORT } from './config.js';
 import { findApp } from './db.js';
 import { addAttachment, createApp, deleteApp, deleteAttachment, deployApp, getLogs, listApps, restartApp, startApp, stopApp, suggestPort, updateApp } from './service.js';
-import { ensurePublicKey, listUsablePublicKeys } from './ssh.js';
+import { deleteFileBackedPublicKey, ensurePublicKey, generateNewPublicKey, listUsablePublicKeys } from './ssh.js';
 
 // Keep route handlers clean by centralizing async error handling.
 // Convention: explicit "not found" errors map to 404, everything else to 400.
@@ -36,6 +36,8 @@ router.get('/ssh/keys', wrap(async (_req, res) => {
   res.json({ keys, hasKeys: keys.length > 0, canGenerate: true });
 }));
 router.post('/ssh/keys', wrap(async (_req, res) => res.json({ ok: true, ...(await ensurePublicKey()) })));
+router.post('/ssh/keys/new', wrap(async (_req, res) => res.json({ ok: true, ...(await generateNewPublicKey()) })));
+router.delete('/ssh/keys/:name', wrap(async (req, res) => res.json({ ok: true, ...(await deleteFileBackedPublicKey(req.params.name)) })));
 
 // List all managed projects with live PM2 status.
 router.get('/apps', wrap(async (_req, res) => res.json({ apps: await listApps() })));

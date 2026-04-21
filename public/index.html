@@ -84,11 +84,14 @@
               <div class="row ssh-key-actions">
                 <button type="button" id="checkSshKeysBtn">Show Available Public Keys</button>
                 <button type="button" class="primary" id="generateSshKeyBtn">Generate SSH Key If Missing</button>
+                <button type="button" id="generateNewSshKeyBtn">Generate New Key</button>
               </div>
               <div class="row ssh-key-actions">
-                <button type="button" id="copyFirstSshKeyBtn">Copy First Public Key</button>
+                <select id="sshKeySelect"></select>
+                <button type="button" id="copySelectedSshKeyBtn">Copy Selected Key</button>
+                <button type="button" class="danger" id="deleteSelectedSshKeyBtn">Delete Selected File Key</button>
               </div>
-              <div class="helper">Your public key appears in the box below. Copy it and add it to GitHub/GitLab/Bitbucket SSH keys.</div>
+              <div class="helper">All discovered public keys are listed below. Copy one and add it to GitHub/GitLab/Bitbucket SSH keys.</div>
               <pre id="sshKeysOutput" class="ssh-keys-output"></pre>
             </div>
           </div>
